@@ -1,0 +1,295 @@
+Alternate firmware for Velleman K8056 8-channel relay card
+Copyright (C) 2012-2023 Anders Sonmark
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.  This file is offered as-is,
+without any warranty.
+
+
+Disclaimers
+===========
+1. I am not affiliated with Velleman in any way.  I was only inspired by
+   their board to make my own firmware for it.
+2. I have not reverse engineered the original firmware.  My only source
+   of information about the board is the information and schematics
+   available on Velleman's official webpage.
+3. Use this firmware at your own risk.  I have not performed extensive
+   testing of all possible combinations of commands so I cannot
+   guarantee that the firmware is free of bugs.  Thus, you should never
+   connect it to something that can break or cause damage if the
+   relays are in an unexpected state.
+
+
+Introduction
+============
+The K8056 is a kit which, when assembled, allow control of 8 relays via
+RS232.  Details about the product, including a schematic diagram, can be
+found at the official product page:
+https://www.velleman.eu/products/view/?id=351282
+
+I liked the hardware of the K8056 but I didn't like the protocol used to
+control it, notably that it requires code to calculate checksums and
+that the communication is one-way so feedback from the card isn't
+possible.  Unfortunately, the official firmware is not available for
+download from Velleman and the included PIC16F630 is code protected, so
+I couldn't just tweak the existing firmware.  Instead I made my own
+firmware using a PIC16F616, which is the cheapest PIC16 I had available
+and also happens to be pin compatible.
+
+To use this firmware, no modifications are necessary to the board other
+than to replace the socketed PIC IC and moving a jumper, i.e. the board
+can be easily restored to the original functionality.
+No external components are required to connect the board other than a
+cable to connect to an RS232 port of the PC or system that will control
+the relays.
+
+
+Features
+========
+Enhancements from the official Velleman firmware:
+- Bi-directional communication, allowing both interactive usage and
+  getting status from the relay board.
+- All commands are ASCII, allowing interaction directly from a terminal.
+- A help command that gives an overview of all commands and arguments.
+- Multiple commands can be entered and executed as a sequence.
+- Relay changes can be scheduled with delays from 125ms to 8 minutes.
+- The test button on the board can be configured to perform different
+  actions, for example manual control of one relay or to turn off all
+  relays.
+
+Limitations compared to the official firmware:
+- The protocol is not backwards compatible with the official firmware's.
+- No addressing, i.e. a single RS232 port can't control multiple boards.
+- No checksums or duplicated commands, i.e. it is expected that the
+  communication is reliable and doesn't suffer from interference.  For
+  this reason, do not use this firmware together with the optional
+  wireless module.
+
+
+Setup
+=====
+You need a PIC16F616 and a way to program it.  How to do that is beyond
+the scope of these instructions.
+It is probable that the firmware could be adapted to a different PIC16
+device.  If you do that, please consider sharing it.  If your patch is
+reasonably small I'll include it.
+
+1. Build the firmware and flash it to the PIC16F616.
+2. With the board powered off, carefully remove the included PIC16F630
+   and insert your PIC16F616.  Make sure to use the correct orientation
+   (pin 1 to the left, same as the original PIC).  You probably want to
+   store the original PIC somewhere safe in case you want to restore the
+   board later.
+3. Make sure JP2 is set to RS232 (upper position).
+4. Set JP1 to ON (left position).
+5. Connect the RS232 cable.  The following pins should be connected.
+   Pin numbers assume a standard 9 pole D-SUB connector.
+     RxD (2) - Third (rightmost) pin of JP1.
+     TxD (3) - IN (right) pin of the SK10 connector.
+     GND (5) - 0- (left) pin of the SK10 connector.
+6. Start a terminal on the RS232 interface and configure the port to
+   9600 baud, 8 data bits, 1 stop bit, and no parity.
+7. Power the board as normal, i.e. using the SK1 connector.
+8. The text "Ready" should appear in the terminal.
+
+Note that the RxD data (from the board to the controlling system) is
+connected directly to the PIC, meaning it can only output 0V and +5V,
+whereas a fully correct RS232 communication need to lower the voltage
+below -3V.  Using 0V and +5V works on the systems I have tested with but
+I can't guarantee that it will work with all RS232 ports.
+As an alternative, it should be possible to use a 5V TTL UART by
+connecting the TxD signal to the middle pin of JP2, thus bypassing the
+level converter on the board and connecting directly to the PIC.  This
+will however require the signals to be inverted which can be done by
+modifying the UART macros at the beginning of the firmware.
+
+
+Protocol Overview
+=================
+Commands are given as ASCII letters (case insensitive) and arguments
+(when applicable) are given as digits (0-9).  Commands are only executed
+when a newline (0x0D) or carriage return (0x0A) is sent, allowing
+multiple commands to be entered to be performed at the same time.
+Backspace (0x08) can be used to undo input characters and Ctrl+C (0x03)
+will clear all characters from the input buffer.  All other characters
+are ignored which allow commands to be separated by space for
+readability.  The size of the input buffer is 48 characters, which
+limits how many commands can be executed in the same sequence.
+If any command in the sequence is invalid, no relays or scheduled relay
+actions are performed.  Other commands, for example getting relay state,
+configuring the button, or showing the help, are performed as they are
+parsed.
+
+
+Command Help
+------------
+Syntax: H
+
+Outputs a summary of all commands and their arguments.
+
+
+Command Version
+---------------
+Syntax: V
+
+Outputs the firmware version.
+
+
+Command Echo
+------------
+Syntax: E or Es
+
+When enabled, all input characters are echoed back.
+The argument disables echo (0), enables echo (1), or toggles the echo
+setting (2).  If no argument is given, the setting is toggled.
+
+
+Command Get Relay State
+-----------------------
+Syntax: G, Gr, or G0
+
+The argument controls which relay to print the state for.  1-8 will
+print the state of a single relay and 9 will print the state of all
+eight relays.  If the argument is zero, all relays states are printed
+on a single line for easier parsing.  If no argument is given, the
+relays are printed as if the argument was 9.
+
+
+Command Set Relay State
+-----------------------
+Syntax: Sr or Srs
+
+First argument is mandatory and selects which relay to set.  1-8 will
+affect a single relay and 9 will affect all eight relays.
+The second argument sets the new state to off (0), on (1), or toggles
+the current state (2). If the second argument is omitted, the selected
+relay(s) will be toggled.
+
+Examples:
+  S41   Set relay 4 on
+  S2    Toggle relay 2
+  S90   Set all relays off
+
+
+Command Set All Relays
+----------------------
+Syntax: Assssssss
+
+This command allows the state of all relays to be modified at the same
+time.  Each argument sets the state of the corresponding relay (with the
+first argument controlling relay 1) to off (0), on (1), toggles the
+current state (2), or leaves it unchanged (3).  If fewer than eight
+arguments are given, the remaining relays will be unchanged.
+
+Example:
+  A00001111  Set relays 1-4 off and relays 5-8 on.
+  A01230     Set relays 1 and 5 off, set relay 2 on, and toggle relay 3.
+
+
+Command Wait
+------------
+Syntax: W or Wt
+
+Specifies that any G, S, A, or P commands following in the same command
+sequence shall be executed after a delay.  The argument specifies the
+delay to 0.125s (0), 0.25s (1), 0.5s (2), 1s (3), 2s (4), 4s (5), 8s
+(6), 16s (7), 32s (8), or 64s (9).  If the argument is omitted, the
+delay will be 0.125s. Multiple W commands are cumulative which can be
+used to achieve other delays.  The maximum delay possible is 8 minutes.
+The delayed execution only applies to commands given in the same input
+sequence, not in later sequences.
+
+A total of 10 delayed actions can be pending at any time but note that
+an A command is scheduled separate for each modified relay.  Using S9,
+G9, G0, or P9 however will only use a single pending slot.
+Actions that are pending will not be canceled by entering a new command
+sequence, with exception of the C command as described below.
+
+The LED on the board will stay turned on while there are pending
+commands as a reminder that the relay states will change again.
+
+A scheduled toggle command will toggle the current state at that time,
+not the state when the command was entered.  Thus, if another command
+has been executed before the timer elapses, the resulting state after
+the scheduled command may be different than if the command hadn't been
+delayed.
+
+Note that other commands (such as B or E) will always be executed
+immediately, regardless of any preceding W commands.
+
+Examples:
+  W3S61        Wait 1 second then set relay 6 on.
+  W7W5S7       Wait 20 seconds then toggle relay 7.
+  S30W2S31     Set relay 3 off, wait 0.5 seconds, then set relay 3 on.
+  W8A00W3S0G0  Wait 32 seconds, turn relays 1 and 2 off, wait another 1
+               second, toggle relay 1, and print the state of all relays
+               using the compact output.
+
+
+Command Pulse Relays
+--------------------
+Syntax: Pr, Prt, or Prts
+
+This command is a convenience command to perform a set command and
+schedule the opposite set command after a delay.
+The first argument is mandatory and selects the relay(s) (same as for
+the S command above).  The second command is the delay (same as for the
+W command above).  The third argument specifies the relay states as
+off+on (0), on+off (1), or toggle+toggle (2).
+If the last argument is omitted, the state will be toggled both times.
+If the second argument is omitted, the delay will be 0.125s.
+Note that the delay in a P command does not affect other commands the
+way a W command does but both actions performed by the P command are
+affected by preceding W commands.
+
+Examples:
+  P531      Turn relay 5 on, wait 1 second, and turn relay 5 off.
+  P62       Toggle relay 6, wait 0.5s, and toggle relay 6 again.
+  P8        Toggle relay 8, wait 0.125s, and toggle relay 8 again.
+  W4P730S2  Wait 2s, set relay 7 off, toggle relay 2, wait 1 more
+            second, then set relay 7 on.
+
+
+Command Configure Button Action
+-------------------------------
+Syntax: B, Br, Brs, or Brsb
+
+This command specifies which action to perform when the test button is
+pressed.  If no arguments are given, the button is disabled.  The first
+and second arguments specify which relay and state to set (same as for
+the S command above).  The third argument specifies whether releasing
+the button will do nothing (0), or do the reverse (1).  If the first
+argument is zero or if no arguments are given, no action is performed
+when the button is pressed or released.,
+
+Note that the button will not cancel scheduled actions.
+
+Examples:
+  B4    Relay 4 will be toggled when button is pressed.
+  B311  Relay 3 will be on while the button is pressed.
+  B90   Pressing the button turns off all relays.
+  B     Pressing the button will not affect any relays.
+
+
+Command Show Timers
+-------------------
+Syntax: T or Tc
+
+This command prints scheduled actions and the remaining time until they
+will occur.  If the argument is given, only that timer is printed,
+otherwise all 10 timers are printed.
+The remaining time is printed as a hex value of the upper 8 bits of the
+remaining time (in units of 2 seconds).  The lower 8 bits of the timers
+are not included in the output.
+The action is printed as two digits where the first is the action
+(0=set off, 1=set on, 2=toggle, 3=print) and the second is the relay
+(1-8=single relay, 9=all relays).
+
+
+Command Clear Timers
+--------------------
+Syntax: C or Cc
+
+Cancels any scheduled action.  If an argument is given, only that timer
+is canceled, otherwise all timers are canceled.

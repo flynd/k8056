@@ -1,0 +1,159 @@
+
+# This file was written by gpsim.
+
+# You can use this file for example like this:
+#     gpsim -s mycode.cod -c netlist.stc
+
+# If you want to add commands, you can create another .stc file
+# and load this file from it. Something like this:
+# ----------- myproject.stc ---------------
+# load s mycode.cod
+# frequency 12000000
+# load c netlist.stc
+# -----------------------------------------
+# You can then just load this new file:
+#     gpsim -c myproject.stc
+# and use netlist.stc whenever you save from the breadboard.
+#
+
+
+# Processor position:
+module library libgpsim_modules
+
+
+# Modules:
+p16f616.BreakOnReset = true
+p16f616.SafeMode = true
+p16f616.UnknownMode = true
+p16f616.WarnMode = true
+p16f616.tmr1_freq = 32768
+p16f616.xpos = 204
+p16f616.ypos = 156
+
+module load usart uart
+uart.rxbaud = 9600
+uart.txbaud = 9600
+uart.xpos = 72
+uart.ypos = 348
+
+module load not RX
+RX.xpos = 72
+RX.ypos = 276
+
+module load not TX
+TX.xpos = 72
+TX.ypos = 216
+
+module load led LED
+LED.ActiveState = high
+LED.color = red
+LED.xpos = 216
+LED.ypos = 324
+
+module load push_button button
+button.xpos = 288
+button.ypos = 324
+
+module load led RY1
+RY1.ActiveState = high
+RY1.color = red
+RY1.xpos = 36
+RY1.ypos = 36
+
+module load led RY2
+RY2.ActiveState = high
+RY2.color = red
+RY2.xpos = 96
+RY2.ypos = 36
+
+module load led RY3
+RY3.ActiveState = high
+RY3.color = red
+RY3.xpos = 156
+RY3.ypos = 36
+
+module load led RY4
+RY4.ActiveState = high
+RY4.color = red
+RY4.xpos = 216
+RY4.ypos = 36
+
+module load led RY5
+RY5.ActiveState = high
+RY5.color = red
+RY5.xpos = 276
+RY5.ypos = 36
+
+module load led RY6
+RY6.ActiveState = high
+RY6.color = red
+RY6.xpos = 336
+RY6.ypos = 36
+
+module load led RY7
+RY7.ActiveState = high
+RY7.color = red
+RY7.xpos = 396
+RY7.ypos = 36
+
+module load led RY8
+RY8.ActiveState = high
+RY8.color = red
+RY8.xpos = 456
+RY8.ypos = 36
+
+module load not BTN
+BTN.xpos = 348
+BTN.ypos = 264
+
+
+
+# Connections:
+node a0
+attach a0 p16f616.porta0 RY3.in
+
+node a1
+attach a1 p16f616.porta1 RY4.in
+
+node a2
+attach a2 p16f616.porta2 BTN.out
+
+node a3
+attach a3 p16f616.porta3 RX.out
+
+node nrx
+attach nrx RX.in0 uart.TXPIN
+
+node a4
+attach a4 p16f616.porta4 TX.in0
+
+node ntx
+attach ntx TX.out uart.RXPIN
+
+node a5
+attach a5 LED.in p16f616.porta5
+
+node c0
+attach c0 p16f616.portc0 RY5.in
+
+node c1
+attach c1 p16f616.portc1 RY6.in
+
+node c2
+attach c2 p16f616.portc2 RY7.in
+
+node c3
+attach c3 p16f616.portc3 RY8.in
+
+node c4
+attach c4 p16f616.portc4 RY2.in
+
+node c5
+attach c5 p16f616.portc5 RY1.in
+
+node nb
+attach nb button.out BTN.in0
+
+
+
+# End.
